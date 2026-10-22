@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Extracteur de Fichiers 123pan</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #0f172a;
+            color: #f8fafc;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            background-color: #1e293b;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+            width: 100%;
+            max-width: 600px;
+            text-align: center;
+        }
+        h2 {
+            margin-bottom: 8px;
+            font-size: 1.6rem;
+            color: #38bdf8;
+        }
+        .subtitle {
+            color: #94a3b8;
+            font-size: 0.85rem;
+            margin-bottom: 20px;
+        }
+        input[type="text"] {
+            width: 100%;
+            padding: 12px 15px;
+            margin-bottom: 15px;
+            border: 1px solid #475569;
+            background-color: #0f172a;
+            color: #fff;
+            border-radius: 8px;
+            outline: none;
+            font-size: 0.95rem;
+        }
+        input[type="text"]:focus {
+            border-color: #38bdf8;
+        }
+        button {
+            width: 100%;
+            padding: 12px;
+            background-color: #38bdf8;
+            color: #0f172a;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background 0.2s;
+            margin-bottom: 20px;
+        }
+        button:hover {
+            background-color: #0ea5e9;
+        }
+        #status {
+            margin-bottom: 15px;
+            font-size: 0.9rem;
+            color: #cbd5e1;
+        }
+        #fileList {
+            text-align: left;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            max-height: 350px;
+            overflow-y: auto;
+        }
+        .file-card {
+            background-color: #0f172a;
+            border: 1px solid #334155;
+            padding: 12px 15px;
+            border-radius: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .file-info {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            overflow: hidden;
+        }
+        .file-name {
+            font-weight: 600;
+            font-size: 0.95rem;
+            color: #e2e8f0;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .file-size {
+            font-size: 0.75rem;
+            color: #64748b;
+        }
+        .download-btn {
+            background-color: #22c55e;
+            color: #0f172a;
+            padding: 6px 12px;
+            border-radius: 6px;
+            text-decoration: none;
+            font-size: 0.85rem;
+            font-weight: bold;
+            white-space: nowrap;
+            margin: 0;
+            width: auto;
+        }
+        .download-btn:hover {
+            background-color: #16a34a;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h2>Récupérateur 123pan</h2>
+        <div class="subtitle">Extraire les fichiers à partir du lien de partage</div>
+
+        <input type="text" id="urlInput" value="https://1826548146.mshare.123pan.cn/123pan/VRTDjv-dJEk3?notoken=1" placeholder="Colle ton lien 123pan ici...">
+        <button onclick="fetch123panFiles()">Extraire les fichiers</button>
+
+        <div id="status"></div>
+        <div id="fileList"></div>
+    </div>
+
+    <script>
+        // Extraire la clé de partage à partir de l'URL
+        function extractShareKey(url) {
+            const match = url.match(/\/123pan\/([a-zA-Z0-9-]+)/) || url.match(/\/s\/([a-zA-Z0-9-]+)/);
+            return match ? match[1] : null;
+        }
+
+        // Convertir la taille des fichiers en octets vers Ko/Mo/Go
+        function formatBytes(bytes) {
+            if (!bytes || bytes === 0) return 'Taille inconnue';
+            const k = 1024;
+            const sizes = ['Octets', 'Ko', 'Mo', 'Go', 'To'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        async function fetch123panFiles() {
+            const url = document.getElementById('urlInput').value.trim();
+            const statusDiv = document.getElementById('status');
+            const fileListDiv = document.getElementById('fileList');
+
+            fileListDiv.innerHTML = "";
+
+            const shareKey = extractShareKey(url);
+            if (!shareKey) {
+                statusDiv.innerHTML = "<span style='color: #f87171;'>Impossible d'extraire la clé de partage du lien. Assure-toi que c'est bien un lien 123pan.</span>";
+                return;
+            }
+
+            statusDiv.innerHTML = "⏳ Interrogation de l'API 123pan...";
+
+            // Appel de l'API de partage de 123pan via un proxy CORS
+            const apiUrl = `https://www.123pan.com/api/share/get?shareKey=${shareKey}&limit=100&next=0&orderBy=share_id&orderDirection=desc`;
+            const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(apiUrl)}`;
+
+            try {
+                const response = await fetch(proxyUrl);
+                const data = await response.json();
+                const apiData = JSON.parse(data.contents);
+
+                if (apiData && apiData.data && apiData.data.InfoList && apiData.data.InfoList.length > 0) {
+                    statusDiv.innerHTML = `<span style='color: #4ade80;'>✅ ${apiData.data.InfoList.length} fichier(s) trouvé(s) !</span>`;
+                    
+                    apiData.data.InfoList.forEach(file => {
+                        const fileCard = document.createElement('div');
+                        fileCard.className = 'file-card';
+
+                        const fileName = file.FileName || file.filename || "Fichier sans nom";
+                        const fileSize = formatBytes(file.Size || file.size);
+                        const fileDownloadUrl = file.DownloadUrl || file.Url || url;
+
+                        fileCard.innerHTML = `
+                            <div class="file-info">
+                                <span class="file-name">📄 ${fileName}</span>
+                                <span class="file-size">${fileSize}</span>
+                            </div>
+                            <a class="download-btn" href="${fileDownloadUrl}" target="_blank">Télécharger</a>
+                        `;
+                        fileListDiv.appendChild(fileCard);
+                    });
+                } else if (apiData && apiData.code !== 0) {
+                    statusDiv.innerHTML = `<span style='color: #f87171;'>Erreur API 123pan : Code ${apiData.code} (${apiData.message || 'Lien expiré ou protégé'})</span>`;
+                } else {
+                    statusDiv.innerHTML = "<span style='color: #f87171;'>Aucun fichier trouvé dans ce dossier de partage.</span>";
+                }
+            } catch (err) {
+                console.error(err);
+                statusDiv.innerHTML = "<span style='color: #f87171;'>Erreur lors de la récupération. Le serveur 123pan nécessite peut-être un jeton de session temporaire.</span>";
+            }
+        }
+
+        // Lancer l'extraction automatiquement au chargement
+        window.onload = function() {
+            fetch123panFiles();
+        };
+    </script>
+
+</body>
+</html>
